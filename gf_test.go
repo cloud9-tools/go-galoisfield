@@ -86,6 +86,17 @@ func TestNew_gf256(t *testing.T) {
 	}
 }
 
+func TestGF_Polynomial(t *testing.T) {
+	p := Poly84310_g3.Polynomial()
+	if p != 0x11b {
+		t.Errorf("Poly84310_g3.Polynomial(): expected 0x11b, got %#x", p)
+	}
+	g := Poly84310_g3.Generator()
+	if g != 0x3 {
+		t.Errorf("Poly84310_g3.Generator(): expected 0x3, got %#x", g)
+	}
+}
+
 func panicValue(f func()) (value error) {
 	defer func() {
 		if e, ok := recover().(error); ok {
@@ -146,25 +157,17 @@ func TestNew_reducible(t *testing.T) {
 
 func TestGF_Add(t *testing.T) {
 	for _, value := range []byte{0, 1, 5, 19} {
-		result := (*GF)(nil).Add(value, value)
+		result := Default.Add(value, value)
 		if result != 0 {
 			t.Errorf("expected %d+%[1]d=0, but got %d", value, result)
 		}
-		result = (*GF)(nil).Add(value, 0)
+		result = Default.Add(value, 0)
 		if result != value {
 			t.Errorf("expected %d+0=%d, but got %d", value, result)
 		}
-		result = (*GF)(nil).Add(0, value)
+		result = Default.Add(0, value)
 		if result != value {
 			t.Errorf("expected %d+0=%d, but got %d", value, result)
-		}
-		result = (*GF)(nil).Sub(value, value)
-		if result != 0 {
-			t.Errorf("expected %d-%[1]d=0, but got %d", value, result)
-		}
-		result = (*GF)(nil).Neg(value)
-		if result != value {
-			t.Errorf("expected -%d=%[1]d, but got %d", value, result)
 		}
 	}
 }
@@ -176,23 +179,23 @@ func TestGF_Mul(t *testing.T) {
 	var a byte = 0x11
 	var b byte = 0x14
 	var axb byte = 0x49
-	result := (*GF)(nil).Mul(a, 0)
+	result := Default.Mul(a, 0)
 	if result != 0 {
 		t.Errorf("expected %d*0=0, but got %d", a, result)
 	}
-	result = (*GF)(nil).Mul(0, b)
+	result = Default.Mul(0, b)
 	if result != 0 {
 		t.Errorf("expected 0*%d=0, but got %d", b, result)
 	}
-	result = (*GF)(nil).Mul(a, 1)
+	result = Default.Mul(a, 1)
 	if result != a {
 		t.Errorf("expected %d*1=%[1]d, but got %d", a, result)
 	}
-	result = (*GF)(nil).Mul(1, b)
+	result = Default.Mul(1, b)
 	if result != b {
 		t.Errorf("expected 1*%d=%[1]d, but got %d", b, result)
 	}
-	result = (*GF)(nil).Mul(a, b)
+	result = Default.Mul(a, b)
 	if result != axb {
 		t.Errorf("expected %d*%d=%d, but got %d", a, b, axb, result)
 	}
@@ -202,32 +205,32 @@ func TestGF_Div(t *testing.T) {
 	var a byte = 0x11
 	var b byte = 0x14
 	var axb byte = 0x49
-	result := (*GF)(nil).Div(axb, b)
+	result := Default.Div(axb, b)
 	if result != a {
 		t.Errorf("expected %d/%d=%d, but got %d", axb, b, a, result)
 	}
-	result = (*GF)(nil).Div(axb, a)
+	result = Default.Div(axb, a)
 	if result != b {
 		t.Errorf("expected %d/%d=%d, but got %d", axb, a, b, result)
 	}
-	result = (*GF)(nil).Div(axb, 1)
+	result = Default.Div(axb, 1)
 	if result != axb {
 		t.Errorf("expected %d/1=%[1]d, but got %d", axb, result)
 	}
-	result = (*GF)(nil).Div(0, b)
+	result = Default.Div(0, b)
 	if result != 0 {
 		t.Errorf("expected 0*%d=0, but got %d", b, result)
 	}
 	var invb byte = 0xe0
-	result = (*GF)(nil).Div(1, b)
+	result = Default.Div(1, b)
 	if result != invb {
 		t.Errorf("expected 1/%d=%d, but got %d", b, invb, result)
 	}
-	result = (*GF)(nil).Inv(b)
+	result = Default.Inv(b)
 	if result != invb {
 		t.Errorf("expected 1/%d=%d, but got %d", b, invb, result)
 	}
-	result = (*GF)(nil).Mul(b, invb)
+	result = Default.Mul(b, invb)
 	if result != 1 {
 		t.Errorf("expected %d*%d=1, but got %d", b, invb, result)
 	}
@@ -235,13 +238,13 @@ func TestGF_Div(t *testing.T) {
 
 func TestGF_Div_zero(t *testing.T) {
 	e := panicValue(func() {
-		(*GF)(nil).Div(1, 0)
+		Default.Div(1, 0)
 	})
 	if e != ErrDivByZero {
 		t.Errorf("expected panic(ErrDivByZero), got %q", e.Error())
 	}
 	e = panicValue(func() {
-		(*GF)(nil).Inv(0)
+		Default.Inv(0)
 	})
 	if e != ErrDivByZero {
 		t.Errorf("expected panic(ErrDivByZero), got %q", e.Error())
@@ -250,7 +253,7 @@ func TestGF_Div_zero(t *testing.T) {
 
 func TestGF_Log_zero(t *testing.T) {
 	e := panicValue(func() {
-		(*GF)(nil).Log(0)
+		Default.Log(0)
 	})
 	if e != ErrLogZero {
 		t.Errorf("expected panic(ErrLogZero), got %q", e.Error())
@@ -259,11 +262,11 @@ func TestGF_Log_zero(t *testing.T) {
 
 func TestGF_Exp(t *testing.T) {
 	var ggg byte = 8
-	result := (*GF)(nil).Exp(3)
+	result := Default.Exp(3)
 	if result != ggg {
 		t.Errorf("expected 3^3=%d, got %d", ggg, result)
 	}
-	result = (*GF)(nil).Log(ggg)
+	result = Default.Log(ggg)
 	if result != 3 {
 		t.Errorf("expected log_3(%d)=3, got %d", ggg, result)
 	}
@@ -278,7 +281,8 @@ func TestGF_String(t *testing.T) {
 	for _, row := range []testrow{
 		testrow{Poly84310_g3, "Poly84310_g3", "GF(256;p=0x11b;g=0x3)"},
 		testrow{Poly84320_g2, "Poly84320_g2", "GF(256;p=0x11d;g=0x2)"},
-		testrow{nil, "Poly84320_g2", "GF(256;p=0x11d;g=0x2)"},
+		testrow{Default, "Poly84320_g2", "GF(256;p=0x11d;g=0x2)"},
+		testrow{nil, "nil", "<nil>"},
 		testrow{New(64, 0x43, 0x7), "New(64, 0x43, 0x7)", "GF(64;p=0x43;g=0x7)"},
 	} {
 		gostr := row.field.GoString()
@@ -292,33 +296,43 @@ func TestGF_String(t *testing.T) {
 	}
 }
 
-func TestLess(t *testing.T) {
+func TestCompare(t *testing.T) {
 	type testrow struct {
 		left, right *GF
-		lt, eq, gt  bool
+		cmp int
 	}
 	for _, row := range []testrow{
-		testrow{nil, nil, false, true, false},
-		testrow{nil, Default, false, true, false},
-		testrow{Default, nil, false, true, false},
-		testrow{Poly84310_g3, Poly84320_g2, true, false, false},
-		testrow{Poly84310_g3, New(64, 0x43, 0x7), false, false, true},
+		testrow{Default, Default, 0},
+		testrow{Poly84310_g3, Poly84320_g2, -1},
+		testrow{Poly84320_g2, Poly84310_g3, 1},
+		testrow{Poly84310_g3, Poly610_g7, 1},
+		testrow{Poly610_g7, Poly84310_g3, -1},
+		testrow{Poly610_g2, Poly610_g7, -1},
+		testrow{Poly610_g7, Poly610_g2, 1},
 	} {
-		lt := Less(row.left, row.right)
-		eq := Equal(row.left, row.right)
-		eq2 := Equal(row.right, row.left)
-		gt := Less(row.right, row.left)
-		if lt != row.lt {
-			t.Errorf("Less(%#v, %#v) should be %t", row.left, row.right, row.lt)
+		cmp := row.left.Compare(row.right)
+		if cmp != row.cmp {
+			t.Errorf("expected %#v.Compare(%#v) == %d, got %d", row.left, row.right, row.cmp, cmp)
 		}
-		if eq != row.eq {
-			t.Errorf("Equal(%#v, %#v) should be %t", row.left, row.right, row.eq)
+		cmp2 := -row.right.Compare(row.left)
+		if cmp2 != cmp {
+			t.Errorf("expected a.Compare(b) %d == -b.Compare(a) %d for %#v and %#v", cmp, cmp2, row.left, row.right)
 		}
-		if eq != eq2 {
-			t.Errorf("Equal is not symmetric for (%#v, %#v)", row.left, row.right)
-		}
-		if gt != row.gt {
-			t.Errorf("Less(%#v, %#v) should be %t", row.right, row.left, row.gt)
+		if cmp == 0 {
+			if !row.left.Equal(row.right) {
+				t.Errorf("expected [cmp=0] => [a.Equal(b)] for %#v and %#v", row.left, row.right)
+			}
+			if !row.right.Equal(row.left) {
+				t.Errorf("expected [cmp=0] => [a.Equal(b)] for %#v and %#v", row.right, row.left)
+			}
+		} else if cmp < 0 {
+			if !row.left.Less(row.right) {
+				t.Errorf("expected [cmp<0] => [a.Less(b)] for %#v and %#v", row.left, row.right)
+			}
+		} else {
+			if !row.right.Less(row.left) {
+				t.Errorf("expected [cmp>0] => [b.Less(a)] for %#v and %#v", row.left, row.right)
+			}
 		}
 	}
 }
@@ -365,10 +379,36 @@ func TestGF8(t *testing.T) {
 	}
 }
 
-func BenchmarkGF256(b *testing.B) {
+func BenchmarkGF_Mul_256(b *testing.B) {
+	gf := Default
+	var x byte = 1
+	var y byte = 3
+	for i := 0; i < b.N; i++ {
+		_ = gf.Mul(x, y)
+	}
+}
+
+func BenchmarkGF_Div_256(b *testing.B) {
+	gf := Default
+	var x byte = 1
+	var y byte = 3
+	for i := 0; i < b.N; i++ {
+		_ = gf.Div(x, y)
+	}
+}
+
+func BenchmarkGF_Exp_256(b *testing.B) {
 	gf := Default
 	var x byte = 1
 	for i := 0; i < b.N; i++ {
-		x = gf.Mul(x, 3)
+		_ = gf.Exp(x)
+	}
+}
+
+func BenchmarkGF_Log_256(b *testing.B) {
+	gf := Default
+	var x byte = 1
+	for i := 0; i < b.N; i++ {
+		_ = gf.Log(x)
 	}
 }

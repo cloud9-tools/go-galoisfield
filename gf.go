@@ -15,32 +15,64 @@ var (
 	ErrLogZero        = errors.New("logarithm of zero")
 )
 
-var Poly84310_g3, Poly84320_g2, Default *GF
-
 type params struct {
 	n uint
 	p uint
 	g uint
 }
 
+// GF represents a particular permutation of GF(2**k) for some fixed k.
 type GF struct {
 	params
-	m uint
+	m   uint
 	log []byte
 	exp []byte
 }
 
 var (
 	mu     sync.Mutex
-	global map[params]*GF
+	global map[params]*GF = make(map[params]*GF)
 )
 
-func init() {
-	global = make(map[params]*GF)
+// Some handy pre-chosen polynomial/generator combinations.
+var (
+	// GF(4) p=(x^2 + x + 1) g=2
+	Poly210_g2 = New(4, 0x7, 2)
+
+	// GF(8) p=(x^3 + x + 1) g=2
+	Poly310_g2 = New(8, 0xb, 2)
+
+	// GF(16) p=(x^4 + x + 1) g=2
+	Poly410_g2 = New(16, 0x13, 2)
+
+	// GF(32) p=(x^5 + x^2 + 1) g=2
+	Poly520_g2 = New(32, 0x25, 2)
+
+	// GF(64) p=(x^6 + x + 1) g=2
+	Poly610_g2 = New(64, 0x43, 2)
+	// GF(64) p=(x^6 + x + 1) g=7
+	Poly610_g7 = New(64, 0x43, 7)
+
+	// GF(128) p=(x^7 + x + 1) g=2
+	Poly710_g2 = New(128, 0x83, 2)
+
+	// GF(256), p (x^8 + x^4 + x^3 + x + 1), g 3
 	Poly84310_g3 = New(256, 0x11b, 0x03)
+	// GF(256), p (x^8 + x^4 + x^3 + x^2 + 1), g 2
 	Poly84320_g2 = New(256, 0x11d, 0x02)
-	Default = Poly84320_g2
-}
+
+	// Some arbitrarily-chosen permutations of GF(n).
+	DefaultGF4   = Poly210_g2
+	DefaultGF8   = Poly310_g2
+	DefaultGF16  = Poly410_g2
+	DefaultGF32  = Poly520_g2
+	DefaultGF64  = Poly610_g2
+	DefaultGF128 = Poly710_g2
+	DefaultGF256 = Poly84320_g2
+
+	// Some arbitrarily-chosen permutation of GF(256).
+	Default = DefaultGF256
+)
 
 // New takes n (a power of 2), p (a polynomial), and g (a generator), then uses
 // them to construct an instance of GF(n).  This comes complete with
@@ -52,14 +84,18 @@ func init() {
 // In the following, let k := log_2(n).
 //
 // The "p" argument describes a polynomial of the form
+//
 //	x**k + ∑_i: p_i*x**i; i ∈ [0..(k-1)]
+//
 // where the coefficient p_i is ((p>>i)&1), i.e. the i-th bit counting from the
 // LSB.  The k-th bit MUST be 1, and all higher bits MUST be 0.
 // Thus, n ≤ p < 2n.
 //
 // The "g" argument determines the permutation of field elements.  The value g
 // chosen must be a generator for the field, i.e. the sequence
+//
 //	g**0, g**1, g**2, ... g**(n-1)
+//
 // must be a complete list of all elements in the field.  The field is small
 // enough that the easiest way to discover generators is trial-and-error.
 //
@@ -117,68 +153,64 @@ func New(n, p, g uint) *GF {
 	return singleton
 }
 
-// Equal compares two GFs for equality.
-func Equal(x, y *GF) bool {
-	if x == nil {
-		x = Default
+// Compare defines a total order for finite fields: -1 if a < b, 0 if a == b,
+// or +1 if a > b.
+func (a *GF) Compare(b *GF) int {
+	switch {
+	case a.n < b.n:
+		return -1
+	case a.n > b.n:
+		return 1
+	case a.p < b.p:
+		return -1
+	case a.p > b.p:
+		return 1
+	case a.g < b.g:
+		return -1
+	case a.g > b.g:
+		return 1
+	default:
+		return 0
 	}
-	if y == nil {
-		y = Default
-	}
-	return x.params == y.params
 }
 
-// Less provides a total ordering over GFs.
-func Less(x, y *GF) bool {
-	if x == nil {
-		x = Default
-	}
-	if y == nil {
-		y = Default
-	}
-	if x.Size() != y.Size() {
-		return x.Size() < y.Size()
-	}
-	if x.Polynomial() != y.Polynomial() {
-		return x.Polynomial() < y.Polynomial()
-	}
-	return x.Generator() < y.Generator()
+// Equal returns true iff a == b.
+func (a *GF) Equal(b *GF) bool {
+	return a.Compare(b) == 0
 }
 
-func (gf *GF) Size() uint       { return uint(len(gf.log)) }
+// Less returns true iff a < b.
+func (a *GF) Less(b *GF) bool {
+	return a.Compare(b) < 0
+}
+
+// Size returns the order of the Galois field, i.e. the number of elements.
+func (gf *GF) Size() uint { return gf.n }
+
+// Polynomial returns the polynomial used to generate the Galois field.
 func (gf *GF) Polynomial() uint { return gf.p }
-func (gf *GF) Generator() uint  { return gf.g }
+
+// Generator returns the exponent base used to generate the Galois field.
+func (gf *GF) Generator() uint { return gf.g }
 
 // Add returns x+y == x-y == x^y in GF(2**k).
 func (_ *GF) Add(x, y byte) byte { return x ^ y }
-
-// Sub returns x+y == x-y == x^y in GF(2**k).
-func (_ *GF) Sub(x, y byte) byte { return x ^ y }
-
-// Neg returns -x == x in GF(2**k).
-func (_ *GF) Neg(x byte) byte { return x }
 
 // Mul returns x*y in GF(2**k).
 func (gf *GF) Mul(x, y byte) byte {
 	if x == 0 || y == 0 {
 		return 0
 	}
-	if gf == nil {
-		gf = Default
-	}
 	return gf.exp[uint(gf.log[x])+uint(gf.log[y])]
 }
 
 // Div returns x/y in GF(2**k).
 func (gf *GF) Div(x, y byte) byte {
-	if x == 0 {
+	if x == 0 || y == 0 {
+		if y == 0 {
+			panic(ErrDivByZero)
+		}
 		return 0
-	}
-	if y == 0 {
-		panic(ErrDivByZero)
-	}
-	if gf == nil {
-		gf = Default
 	}
 	return gf.exp[gf.m+uint(gf.log[x])-uint(gf.log[y])]
 }
@@ -188,17 +220,11 @@ func (gf *GF) Inv(x byte) byte {
 	if x == 0 {
 		panic(ErrDivByZero)
 	}
-	if gf == nil {
-		gf = Default
-	}
 	return gf.exp[gf.m-uint(gf.log[x])]
 }
 
 // Exp returns g**x in GF(2**k).
 func (gf *GF) Exp(x byte) byte {
-	if gf == nil {
-		gf = Default
-	}
 	return gf.exp[uint(x)%gf.m]
 }
 
@@ -207,15 +233,13 @@ func (gf *GF) Log(x byte) byte {
 	if x == 0 {
 		panic(ErrLogZero)
 	}
-	if gf == nil {
-		gf = Default
-	}
 	return gf.log[x]
 }
 
+// GoString returns a Go-syntax representation of this GF.
 func (gf *GF) GoString() string {
 	if gf == nil {
-		gf = Default
+		return "nil"
 	}
 	if gf == Poly84310_g3 {
 		return "Poly84310_g3"
@@ -226,9 +250,10 @@ func (gf *GF) GoString() string {
 	return fmt.Sprintf("New(%d, %#x, %#x)", gf.Size(), gf.p, gf.g)
 }
 
+// String returns a human-readable representation of this GF.
 func (gf *GF) String() string {
 	if gf == nil {
-		gf = Default
+		return "<nil>"
 	}
 	return fmt.Sprintf("GF(%d;p=%#x;g=%#x)", gf.Size(), gf.p, gf.g)
 }
