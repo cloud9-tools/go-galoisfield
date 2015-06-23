@@ -323,6 +323,48 @@ func TestLess(t *testing.T) {
 	}
 }
 
+func TestGF8(t *testing.T) {
+	gf8 := New(8, 11, 2)
+	addmatrix := [][]byte{
+		[]byte{0,1,2,3,4,5,6,7},
+		[]byte{1,0,3,2,5,4,7,6},
+		[]byte{2,3,0,1,6,7,4,5},
+		[]byte{3,2,1,0,7,6,5,4},
+		[]byte{4,5,6,7,0,1,2,3},
+		[]byte{5,4,7,6,1,0,3,2},
+		[]byte{6,7,4,5,2,3,0,1},
+		[]byte{7,6,5,4,3,2,1,0},
+	}
+	for i := byte(0); i < 8; i++ {
+		for j := byte(0); j < 8; j++ {
+			actual := gf8.Add(i, j)
+			expect := addmatrix[i][j]
+			if actual != expect {
+				t.Errorf("expected %v+%v=%v, got %v", i, j, expect, actual)
+			}
+		}
+	}
+	mulmatrix := [][]byte{
+		[]byte{0,0,0,0,0,0,0,0},
+		[]byte{0,1,2,3,4,5,6,7},
+		[]byte{0,2,4,6,3,1,7,5},
+		[]byte{0,3,6,5,7,4,1,2},
+		[]byte{0,4,3,7,6,2,5,1},
+		[]byte{0,5,1,4,2,7,3,6},
+		[]byte{0,6,7,1,5,3,2,4},
+		[]byte{0,7,5,2,1,6,4,3},
+	}
+	for i := byte(0); i < 8; i++ {
+		for j := byte(0); j < 8; j++ {
+			actual := gf8.Mul(i, j)
+			expect := mulmatrix[i][j]
+			if actual != expect {
+				t.Errorf("expected %v*%v=%v, got %v", i, j, expect, actual)
+			}
+		}
+	}
+}
+
 func BenchmarkGF256(b *testing.B) {
 	gf := Default
 	var x byte = 1
