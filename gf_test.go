@@ -276,10 +276,10 @@ func TestGF_String(t *testing.T) {
 		str   string
 	}
 	for _, row := range []testrow{
-		testrow{Poly84310_g3, "galoisfield.Poly84310_g3", "GF(256;p=0x11b;g=0x3)"},
-		testrow{Poly84320_g2, "galoisfield.Poly84320_g2", "GF(256;p=0x11d;g=0x2)"},
-		testrow{nil, "galoisfield.Poly84320_g2", "GF(256;p=0x11d;g=0x2)"},
-		testrow{New(64, 0x43, 0x7), "galoisfield.New(64, 0x43, 0x7)", "GF(64;p=0x43;g=0x7)"},
+		testrow{Poly84310_g3, "Poly84310_g3", "GF(256;p=0x11b;g=0x3)"},
+		testrow{Poly84320_g2, "Poly84320_g2", "GF(256;p=0x11d;g=0x2)"},
+		testrow{nil, "Poly84320_g2", "GF(256;p=0x11d;g=0x2)"},
+		testrow{New(64, 0x43, 0x7), "New(64, 0x43, 0x7)", "GF(64;p=0x43;g=0x7)"},
 	} {
 		gostr := row.field.GoString()
 		str := row.field.String()

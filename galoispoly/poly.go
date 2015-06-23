@@ -20,6 +20,9 @@ type Monomial struct {
 
 // NewMonomial returns coefficient*(x**degree) in field.
 func NewMonomial(field *galoisfield.GF, coefficient byte, degree uint) Monomial {
+	if field == nil {
+		field = galoisfield.Default
+	}
 	if coefficient == 0 {
 		return Monomial{field, 0, 0}
 	}
@@ -64,7 +67,7 @@ func (p Monomial) Mul(q Monomial) Monomial {
 
 // GoString returns a Go-syntax representation of this monomial.
 func (p Monomial) GoString() string {
-	return fmt.Sprintf("galois.NewMonomial(%#v, %d, %d)",
+	return fmt.Sprintf("NewMonomial(%#v, %d, %d)",
 		p.field, p.coefficient, p.degree)
 }
 
@@ -135,6 +138,9 @@ type Polynomial struct {
 // Coefficients are in little-endian order; that is, the first coefficient is
 // the constant term, the second coefficient is the linear term, etc.
 func NewPolynomial(field *galoisfield.GF, coefficients []byte) Polynomial {
+	if field == nil {
+		field = galoisfield.Default
+	}
 	for i := len(coefficients) - 1; i >= 0; i-- {
 		if coefficients[i] != 0 {
 			break
@@ -275,7 +281,7 @@ func Mul(first Polynomial, rest ...Polynomial) Polynomial {
 
 // GoString returns a Go-syntax representation of this polynomial.
 func (p Polynomial) GoString() string {
-	return fmt.Sprintf("galois.NewPolynomial(%#v, %#v)", p.field, p.coefficients)
+	return fmt.Sprintf("NewPolynomial(%#v, %#v)", p.field, p.coefficients)
 }
 
 // String returns a human-readable algebraic representation of this polynomial.
@@ -309,7 +315,8 @@ func (p Polynomial) Compare(q Polynomial) int {
 	case len(p.coefficients) > len(q.coefficients):
 		return 1
 	}
-	for i, pi := range p.coefficients {
+	for i := len(p.coefficients) - 1; i >= 0; i-- {
+		pi := p.coefficients[i]
 		qi := q.coefficients[i]
 		if pi < qi {
 			return -1

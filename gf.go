@@ -3,6 +3,7 @@ package galoisfield
 import (
 	"errors"
 	"fmt"
+	"sync"
 )
 
 var (
@@ -12,18 +13,33 @@ var (
 	ErrNotGenerator   = errors.New("value is not a generator")
 	ErrDivByZero      = errors.New("division by zero")
 	ErrLogZero        = errors.New("logarithm of zero")
-
-	Poly84310_g3 = New(256, 0x11b, 0x03)
-	Poly84320_g2 = New(256, 0x11d, 0x02)
-	Default      = Poly84320_g2
 )
 
+var Poly84310_g3, Poly84320_g2, Default *GF
+
+type params struct {
+	n uint
+	p uint
+	g uint
+}
+
 type GF struct {
-	p   uint
-	g   uint
-	m   uint
+	params
+	m uint
 	log []byte
 	exp []byte
+}
+
+var (
+	mu     sync.Mutex
+	global map[params]*GF
+)
+
+func init() {
+	global = make(map[params]*GF)
+	Poly84310_g3 = New(256, 0x11b, 0x03)
+	Poly84320_g2 = New(256, 0x11d, 0x02)
+	Default = Poly84320_g2
 }
 
 // New takes n (a power of 2), p (a polynomial), and g (a generator), then uses
@@ -67,14 +83,16 @@ func New(n, p, g uint) *GF {
 	if isReducible(p) {
 		panic(ErrReduciblePoly)
 	}
+	params := params{n, p, g}
 
-	gf := &GF{
-		p:   p,
-		g:   g,
-		m:   m,
-		log: make([]byte, n),
-		exp: make([]byte, 2*n-2),
+	mu.Lock()
+	singleton, found := global[params]
+	mu.Unlock()
+	if found {
+		return singleton
 	}
+
+	gf := &GF{params, m, make([]byte, n), make([]byte, 2*n-2)}
 
 	// Use the generator to compute the exp/log tables.  We perform the
 	// usual trick of doubling the exp table to simplify Mul.
@@ -88,7 +106,15 @@ func New(n, p, g uint) *GF {
 		gf.log[x] = byte(i)
 		x = mulSlow(x, g, p, n)
 	}
-	return gf
+
+	mu.Lock()
+	singleton, found = global[params]
+	if !found {
+		singleton = gf
+		global[params] = singleton
+	}
+	mu.Unlock()
+	return singleton
 }
 
 // Equal compares two GFs for equality.
@@ -99,7 +125,7 @@ func Equal(x, y *GF) bool {
 	if y == nil {
 		y = Default
 	}
-	return x.Size() == y.Size() && x.Polynomial() == y.Polynomial() && x.Generator() == y.Generator()
+	return x.params == y.params
 }
 
 // Less provides a total ordering over GFs.
@@ -192,12 +218,12 @@ func (gf *GF) GoString() string {
 		gf = Default
 	}
 	if gf == Poly84310_g3 {
-		return "galoisfield.Poly84310_g3"
+		return "Poly84310_g3"
 	}
 	if gf == Poly84320_g2 {
-		return "galoisfield.Poly84320_g2"
+		return "Poly84320_g2"
 	}
-	return fmt.Sprintf("galoisfield.New(%d, %#x, %#x)", gf.Size(), gf.p, gf.g)
+	return fmt.Sprintf("New(%d, %#x, %#x)", gf.Size(), gf.p, gf.g)
 }
 
 func (gf *GF) String() string {
