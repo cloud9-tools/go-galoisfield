@@ -153,7 +153,7 @@ func TestMonomial_Add(t *testing.T) {
 	} {
 		a, b, expected := row.a, row.b, row.expected
 		actual := a.Mul(b)
-		if !actual.Equals(expected) {
+		if !actual.Equal(expected) {
 			t.Errorf("expected (%v)*(%v)=(%v), got %v", a, b, expected, actual)
 		}
 	}
@@ -181,7 +181,7 @@ func TestMonomial_Compare(t *testing.T) {
 			t, a, b, actual,
 			a.Less(b),
 			b.Less(a),
-			a.Equals(b),
-			b.Equals(a))
+			a.Equal(b),
+			b.Equal(a))
 	}
 }

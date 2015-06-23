@@ -26,100 +26,98 @@ func NewMonomial(field *galoisfield.GF, coefficient byte, degree uint) Monomial 
 }
 
 // Field returns the Galois field from which this monomial's coefficient is drawn.
-func (p Monomial) Field() *galoisfield.GF { return p.field }
+func (a Monomial) Field() *galoisfield.GF { return a.field }
 
 // Degree returns the degree of this monomial, with the convention that a
 // monomial with a zero coefficient has degree 0.
-func (p Monomial) Degree() uint { return p.degree }
+func (a Monomial) Degree() uint { return a.degree }
 
 // Coefficient returns the coefficient of this monomial.
-func (p Monomial) Coefficient() byte { return p.coefficient }
+func (a Monomial) Coefficient() byte { return a.coefficient }
 
 // IsZero returns true iff this monomial has a zero coefficient.
-func (p Monomial) IsZero() bool { return p.coefficient == 0 }
+func (a Monomial) IsZero() bool { return a.coefficient == 0 }
 
 // Scale multiplies this monomial by a scalar.
-func (p Monomial) Scale(s byte) Monomial {
-	deg := p.degree
-	coeff := p.field.Mul(p.coefficient, s)
+func (a Monomial) Scale(s byte) Monomial {
+	deg := a.degree
+	coeff := a.field.Mul(a.coefficient, s)
 	if coeff == 0 {
 		deg = 0
 	}
-	return Monomial{field: p.field, degree: deg, coefficient: coeff}
+	return Monomial{field: a.field, degree: deg, coefficient: coeff}
 }
 
 // Mul multiplies this monomial by another monomial.
-func (p Monomial) Mul(q Monomial) Monomial {
-	if !galoisfield.Equal(p.field, q.field) {
+func (a Monomial) Mul(b Monomial) Monomial {
+	if a.field != b.field {
 		panic(ErrIncompatibleFields)
 	}
-	deg := p.degree + q.degree
-	coeff := p.field.Mul(p.coefficient, q.coefficient)
+	deg := a.degree + b.degree
+	coeff := a.field.Mul(a.coefficient, b.coefficient)
 	if coeff == 0 {
 		deg = 0
 	}
-	return Monomial{field: p.field, degree: deg, coefficient: coeff}
-}
-
-// GoString returns a Go-syntax representation of this monomial.
-func (p Monomial) GoString() string {
-	return fmt.Sprintf("NewMonomial(%#v, %d, %d)",
-		p.field, p.coefficient, p.degree)
-}
-
-// String returns a human-readable algebraic representation of this monomial.
-func (p Monomial) String() string {
-	if p.IsZero() {
-		return "0"
-	} else if p.degree == 0 {
-		return strconv.Itoa(int(p.coefficient))
-	} else if p.degree == 1 && p.coefficient == 1 {
-		return "x"
-	} else if p.degree == 1 {
-		return fmt.Sprintf("%dx", p.coefficient)
-	} else if p.coefficient == 1 {
-		return fmt.Sprintf("x^%d", p.degree)
-	} else {
-		return fmt.Sprintf("%dx^%d", p.coefficient, p.degree)
-	}
-}
-
-// Compare defines a partial order for monomials: -1 if p < q, 0 if p == q,
-// +1 if p > q, or panic if p and q are drawn from different Galois fields.
-func (p Monomial) Compare(q Monomial) int {
-	if !galoisfield.Equal(p.field, q.field) {
-		panic(ErrIncompatibleFields)
-	}
-	switch {
-	case p.degree < q.degree:
-		return -1
-	case p.degree > q.degree:
-		return 1
-	case p.coefficient < q.coefficient:
-		return -1
-	case p.coefficient > q.coefficient:
-		return 1
-	default:
-		return 0
-	}
-}
-
-// Equals returns true iff p == q.
-func (p Monomial) Equals(q Monomial) bool {
-	if !galoisfield.Equal(p.field, q.field) {
-		return false
-	}
-	return p.Compare(q) == 0
-}
-
-// Less returns true iff p < q.
-func (p Monomial) Less(q Monomial) bool {
-	return p.Compare(q) < 0
+	return Monomial{field: a.field, degree: deg, coefficient: coeff}
 }
 
 // Polynomial returns the polynomial whose sole term is this monomial.
-func (p Monomial) Polynomial() Polynomial {
-	coefficients := make([]byte, p.degree+1)
-	coefficients[p.degree] = p.coefficient
-	return NewPolynomial(p.field, coefficients)
+func (a Monomial) Polynomial() Polynomial {
+	coefficients := make([]byte, a.degree+1)
+	coefficients[a.degree] = a.coefficient
+	return NewPolynomial(a.field, coefficients)
+}
+
+// GoString returns a Go-syntax representation of this monomial.
+func (a Monomial) GoString() string {
+	return fmt.Sprintf("NewMonomial(%#v, %d, %d)",
+		a.field, a.coefficient, a.degree)
+}
+
+// String returns a human-readable algebraic representation of this monomial.
+func (a Monomial) String() string {
+	if a.IsZero() {
+		return "0"
+	} else if a.degree == 0 {
+		return strconv.Itoa(int(a.coefficient))
+	} else if a.degree == 1 && a.coefficient == 1 {
+		return "x"
+	} else if a.degree == 1 {
+		return fmt.Sprintf("%dx", a.coefficient)
+	} else if a.coefficient == 1 {
+		return fmt.Sprintf("x^%d", a.degree)
+	} else {
+		return fmt.Sprintf("%dx^%d", a.coefficient, a.degree)
+	}
+}
+
+// Compare defines a total order for monomials: -1 if a < b, 0 if a == b, or
+// +1 if a > b.
+func (a Monomial) Compare(b Monomial) int {
+	if cmp := a.field.Compare(b.field); cmp != 0 {
+		return cmp
+	}
+	if a.degree < b.degree {
+		return -1
+	}
+	if a.degree > b.degree {
+		return 1
+	}
+	if a.coefficient < b.coefficient {
+		return -1
+	}
+	if a.coefficient > b.coefficient {
+		return 1
+	}
+	return 0
+}
+
+// Equal returns true iff a == b.
+func (a Monomial) Equal(b Monomial) bool {
+	return a.Compare(b) == 0
+}
+
+// Less returns true iff a < b.
+func (a Monomial) Less(b Monomial) bool {
+	return a.Compare(b) < 0
 }

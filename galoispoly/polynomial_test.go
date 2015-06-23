@@ -38,9 +38,15 @@ func TestPolynomial_Scale(t *testing.T) {
 		testrow{5,
 			NewPolynomial(nil, []byte{3, 0, 1}),
 			NewPolynomial(nil, []byte{15, 0, 5})},
+		testrow{1,
+			NewPolynomial(nil, []byte{3, 0, 1}),
+			NewPolynomial(nil, []byte{3, 0, 1})},
+		testrow{0,
+			NewPolynomial(nil, []byte{3, 0, 1}),
+			NewPolynomial(nil, nil)},
 	} {
 		actual := row.input.Scale(row.scalar)
-		if !actual.Equals(row.expected) {
+		if !actual.Equal(row.expected) {
 			t.Errorf("expected %d*(%v)=(%v), got (%v)",
 				row.scalar, row.input, row.expected, actual)
 		}
@@ -70,8 +76,8 @@ func TestPolynomial_Compare(t *testing.T) {
 			t, a, b, actual,
 			a.Less(b),
 			b.Less(a),
-			a.Equals(b),
-			b.Equals(a))
+			a.Equal(b),
+			b.Equal(a))
 	}
 }
 
@@ -95,8 +101,8 @@ func TestAdd(t *testing.T) {
 		a := NewPolynomial(nil, row.a)
 		b := NewPolynomial(nil, row.b)
 		expected := NewPolynomial(nil, row.expected)
-		actual := Add(a, b)
-		if !actual.Equals(expected) {
+		actual := a.Add(b)
+		if !actual.Equal(expected) {
 			t.Errorf("expected (%v)+(%v)=(%v), got %v", a, b, expected, actual)
 		}
 	}
@@ -105,10 +111,10 @@ func TestAdd(t *testing.T) {
 func TestAdd_axioms(t *testing.T) {
 	zero := NewPolynomial(nil, nil)
 	add := func(x, y interface{}) interface{} {
-		return Add(x.(Polynomial), y.(Polynomial))
+		return x.(Polynomial).Add(y.(Polynomial))
 	}
 	eq := func(x, y interface{}) bool {
-		return x.(Polynomial).Equals(y.(Polynomial))
+		return x.(Polynomial).Equal(y.(Polynomial))
 	}
 	type testrow struct {
 		a, b, c []byte

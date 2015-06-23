@@ -35,65 +35,65 @@ func NewPolynomial(field *galoisfield.GF, coefficients []byte) Polynomial {
 }
 
 // Field returns the Galois field from which this polynomial's coefficients are drawn.
-func (p Polynomial) Field() *galoisfield.GF { return p.field }
+func (a Polynomial) Field() *galoisfield.GF { return a.field }
 
 // IsZero returns true iff this polynomial has no terms.
-func (p Polynomial) IsZero() bool { return p.coefficients == nil }
+func (a Polynomial) IsZero() bool { return a.coefficients == nil }
 
 // Degree returns the degree of this polynomial, with the convention that the
 // polynomial of zero terms has degree 0.
-func (p Polynomial) Degree() uint {
-	if p.IsZero() {
+func (a Polynomial) Degree() uint {
+	if a.IsZero() {
 		return 0
 	}
-	return uint(len(p.coefficients) - 1)
+	return uint(len(a.coefficients) - 1)
 }
 
 // Coefficients returns the coefficients of the terms of this polynomial.  The
 // result is in little-endian order; see NewPolynomial for details.
-func (p Polynomial) Coefficients() []byte {
+func (a Polynomial) Coefficients() []byte {
 	var dup []byte
-	if len(p.coefficients) > 0 {
-		dup = make([]byte, len(p.coefficients))
-		copy(dup, p.coefficients)
+	if len(a.coefficients) > 0 {
+		dup = make([]byte, len(a.coefficients))
+		copy(dup, a.coefficients)
 	}
 	return dup
 }
 
 // Coefficient returns the coefficient of the i'th term.
-func (p Polynomial) Coefficient(i uint) byte {
-	if i >= uint(len(p.coefficients)) {
+func (a Polynomial) Coefficient(i uint) byte {
+	if i >= uint(len(a.coefficients)) {
 		return 0
 	}
-	return p.coefficients[i]
+	return a.coefficients[i]
 }
 
 // Term returns the i'th term.
-func (p Polynomial) Term(i uint) Monomial {
-	return NewMonomial(p.field, p.Coefficient(i), i)
+func (a Polynomial) Term(i uint) Monomial {
+	return NewMonomial(a.field, a.Coefficient(i), i)
 }
 
 // Scale multiplies this polynomial by a scalar.
-func (p Polynomial) Scale(s byte) Polynomial {
+func (a Polynomial) Scale(s byte) Polynomial {
 	if s == 0 {
-		return Polynomial{p.field, nil}
+		return Polynomial{a.field, nil}
 	}
 	if s == 1 {
-		return p
+		return a
 	}
-	coefficients := make([]byte, len(p.coefficients))
-	for i, coeff_i := range p.coefficients {
-		coefficients[i] = p.field.Mul(coeff_i, s)
+	coefficients := make([]byte, len(a.coefficients))
+	for i, coeff_i := range a.coefficients {
+		coefficients[i] = a.field.Mul(coeff_i, s)
 	}
-	return NewPolynomial(p.field, coefficients)
+	return NewPolynomial(a.field, coefficients)
 }
 
 // Add returns the sum of one or more polynomials.
-func Add(first Polynomial, rest ...Polynomial) Polynomial {
+func (first Polynomial) Add(rest ...Polynomial) Polynomial {
 	sum := make([]byte, len(first.coefficients))
 	copy(sum, first.coefficients)
 	for _, next := range rest {
-		if !galoisfield.Equal(first.field, next.field) {
+		if first.field != next.field {
 			panic(ErrIncompatibleFields)
 		}
 		if next.IsZero() {
@@ -112,21 +112,21 @@ func Add(first Polynomial, rest ...Polynomial) Polynomial {
 }
 
 // Mul returns the product of one or more polynomials.
-func Mul(first Polynomial, rest ...Polynomial) Polynomial {
+func (first Polynomial) Mul(rest ...Polynomial) Polynomial {
 	prod := make([]byte, len(first.coefficients))
 	copy(prod, first.coefficients)
 	for _, next := range rest {
-		if !galoisfield.Equal(first.field, next.field) {
+		if first.field != next.field {
 			panic(ErrIncompatibleFields)
 		}
 		if first.IsZero() || next.IsZero() {
 			continue
 		}
-		p, q := prod, next.coefficients
-		if len(p) < len(q) {
-			p, q = q, p
+		a, b := prod, next.coefficients
+		if len(a) < len(b) {
+			a, b = b, a
 		}
-		newprod := make([]byte, len(p)+len(q)-1)
+		newprod := make([]byte, len(a)+len(b)-1)
 		//                                                 a3*x^3 + a2*x^2 + a1*x^1 + a0*x^0
 		//                                               × b3*x^3 + b2*x^2 + b1*x^1 + b0*x^0
 		// ---------------------------------------------------------------------------------
@@ -147,10 +147,10 @@ func Mul(first Polynomial, rest ...Polynomial) Polynomial {
 		//                                               + (a0*b2+a1*b1+a2*b0)x^2
 		//                                                           + (a0*b1+a1*b0)x^1
 		//                                                                         + (a0*b0)
-		for j := 0; j < len(q); j++ {
-			for i := 0; i < len(p); i++ {
-				product := first.field.Mul(p[i], q[j])
-				newprod[i+j] = first.field.Add(newprod[i+j], product)
+		for bi := 0; bi < len(b); bi++ {
+			for ai := 0; ai < len(a); ai++ {
+				product := first.field.Mul(a[ai], b[bi])
+				newprod[ai+bi] = first.field.Add(newprod[ai+bi], product)
 			}
 		}
 		prod = newprod
@@ -159,18 +159,18 @@ func Mul(first Polynomial, rest ...Polynomial) Polynomial {
 }
 
 // GoString returns a Go-syntax representation of this polynomial.
-func (p Polynomial) GoString() string {
-	return fmt.Sprintf("NewPolynomial(%#v, %#v)", p.field, p.coefficients)
+func (a Polynomial) GoString() string {
+	return fmt.Sprintf("NewPolynomial(%#v, %#v)", a.field, a.coefficients)
 }
 
 // String returns a human-readable algebraic representation of this polynomial.
-func (p Polynomial) String() string {
-	if p.IsZero() {
+func (a Polynomial) String() string {
+	if a.IsZero() {
 		return "0"
 	}
 	var buf bytes.Buffer
-	for i := len(p.coefficients) - 1; i >= 0; i-- {
-		term := p.Term(uint(i))
+	for i := len(a.coefficients) - 1; i >= 0; i-- {
+		term := a.Term(uint(i))
 		if !term.IsZero() {
 			buf.WriteString(term.String())
 			buf.WriteString(" + ")
@@ -182,21 +182,21 @@ func (p Polynomial) String() string {
 	return buf.String()
 }
 
-// Compare defines a partial order for polynomials: -1 if p < q, 0 if p == q,
-// +1 if p > q, or panic if p and q are drawn from different Galois fields.
-func (p Polynomial) Compare(q Polynomial) int {
-	if !galoisfield.Equal(p.field, q.field) {
-		panic(ErrIncompatibleFields)
+// Compare defines a partial order for polynomials: -1 if a < b, 0 if a == b,
+// +1 if a > b, or panic if a and b are drawn from different Galois fields.
+func (a Polynomial) Compare(b Polynomial) int {
+	if cmp := a.field.Compare(b.field); cmp != 0 {
+		return cmp
 	}
-	switch {
-	case len(p.coefficients) < len(q.coefficients):
+	if len(a.coefficients) < len(b.coefficients) {
 		return -1
-	case len(p.coefficients) > len(q.coefficients):
+	}
+	if len(a.coefficients) > len(b.coefficients) {
 		return 1
 	}
-	for i := len(p.coefficients) - 1; i >= 0; i-- {
-		pi := p.coefficients[i]
-		qi := q.coefficients[i]
+	for i := len(a.coefficients) - 1; i >= 0; i-- {
+		pi := a.coefficients[i]
+		qi := b.coefficients[i]
 		if pi < qi {
 			return -1
 		}
@@ -207,15 +207,12 @@ func (p Polynomial) Compare(q Polynomial) int {
 	return 0
 }
 
-// Equals returns true iff p == q.
-func (p Polynomial) Equals(q Polynomial) bool {
-	if !galoisfield.Equal(p.field, q.field) {
-		return false
-	}
-	return p.Compare(q) == 0
+// Equal returns true iff a == b.
+func (a Polynomial) Equal(b Polynomial) bool {
+	return a.Compare(b) == 0
 }
 
-// Less returns true iff p < q.
-func (p Polynomial) Less(q Polynomial) bool {
-	return p.Compare(q) < 0
+// Less returns true iff a < b.
+func (a Polynomial) Less(b Polynomial) bool {
+	return a.Compare(b) < 0
 }
