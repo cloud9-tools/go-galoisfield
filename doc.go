@@ -1,11 +1,11 @@
 // Package galoisfield implements the `GF(2**m)` Galois finite fields.
 // 
-// ## What is a Galois field?
+// What is a Galois field?
 // 
-// * http://mathworld.wolfram.com/FiniteField.html
-// * http://ocw.mit.edu/courses/electrical-engineering-and-computer-science/6-451-principles-of-digital-communication-ii-spring-2005/lecture-notes/chap7.pdf
-// * http://www.cs.utsa.edu/~wagner/laws/FFM.html
-// * http://research.swtch.com/field
+//	http://mathworld.wolfram.com/FiniteField.html
+//	http://ocw.mit.edu/courses/electrical-engineering-and-computer-science/6-451-principles-of-digital-communication-ii-spring-2005/lecture-notes/chap7.pdf
+//	http://www.cs.utsa.edu/~wagner/laws/FFM.html
+//	http://research.swtch.com/field
 // 
 // A Galois field, also known as a finite field, is a mathematical field with a
 // number of elements equal to a prime number to a positive integer power.  While
