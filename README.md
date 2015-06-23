@@ -1,5 +1,5 @@
 # go-galoisfield
-An implementation of `GF(2**m)` for Go.
+An implementation of the `GF(2**m)` Galois finite fields for Go.
 
 ## What is a Galois field?
 
