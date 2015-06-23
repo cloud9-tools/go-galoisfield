@@ -1,6 +1,10 @@
 # go-galoisfield
 An implementation of the `GF(2**m)` Galois finite fields for Go.
 
+[![godoc](https://chronos-tachyon.net/img/godoc-badge.svg)](https://godoc.org/github.com/cloud9-tools/go-galoisfield)
+[![Build Status](https://travis-ci.org/cloud9-tools/go-galoisfield.svg)](https://travis-ci.org/cloud9-tools/go-galoisfield)
+[![Coverage Status](https://coveralls.io/repos/cloud9-tools/go-galoisfield/badge.svg)](https://coveralls.io/r/cloud9-tools/go-galoisfield)
+
 ## What is a Galois field?
 
 * http://mathworld.wolfram.com/FiniteField.html
