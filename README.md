@@ -15,3 +15,13 @@ follow from linear algebra (vectors, or alternatively, polynomial coefficients).
 * http://en.wikipedia.org/wiki/Finite_field
 * http://www.cs.utsa.edu/~wagner/laws/FFM.html
 * http://research.swtch.com/field
+
+Short version: an element of `GF(2**8)` element may be represented as a byte
+(0 ≤ n ≤ 255), but it's really a vector of 8 bits -- like a very primitive
+MMX/SSE.  We then treat said vector as the coefficients of a polynomial, and
+that allows us to define multiplication, giving us a full mathematical field.
+
+Finite fields -- and `GF(2**8)` in particular -- get a tons of use in codes,
+in both the "error-correcting code" and "cryptographic code" senses.
+However, this implementation has NOT been hardened against timing attacks,
+so it MUST NOT be used in cryptography.
