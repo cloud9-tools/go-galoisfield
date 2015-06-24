@@ -2,9 +2,15 @@ package galoispoly
 
 import (
 	"bytes"
+	"errors"
+	"fmt"
 	"strconv"
 
 	"github.com/cloud9-tools/go-galoisfield"
+)
+
+var (
+	ErrIncompatibleFields = errors.New("cannot combine polynomials from different finite fields")
 )
 
 // Polynomial implements polynomials with coefficients drawn from a Galois field.
@@ -68,11 +74,6 @@ func (a Polynomial) Coefficient(i uint) byte {
 	return a.coefficients[i]
 }
 
-// Term returns the i'th term.
-func (a Polynomial) Term(i uint) Monomial {
-	return NewMonomial(a.field, a.Coefficient(i), i)
-}
-
 // Scale multiplies this polynomial by a scalar.
 func (a Polynomial) Scale(s byte) Polynomial {
 	if s == 0 {
@@ -127,26 +128,6 @@ func (first Polynomial) Mul(rest ...Polynomial) Polynomial {
 			a, b = b, a
 		}
 		newprod := make([]byte, len(a)+len(b)-1)
-		//                                                 a3*x^3 + a2*x^2 + a1*x^1 + a0*x^0
-		//                                               × b3*x^3 + b2*x^2 + b1*x^1 + b0*x^0
-		// ---------------------------------------------------------------------------------
-		// b3*x^3*(a3*x^3 + a2*x^2 + a1*x^1 + a0*x^0)
-		//           + b2*x^2*(a3*x^3 + a2*x^2 + a1*x^1 + a0*x^0)
-		//                       + b1*x^1*(a3*x^3 + a2*x^2 + a1*x^1 + a0*x^0)
-		//                                   + b0*x^0*(a3*x^3 + a2*x^2 + a1*x^1 + a0*x^0)
-		// ---------------------------------------------------------------------------------
-		// a3*b3*x^6 + a2*b3*x^5 + a1*b3*x^4 + a0*b3*x^3
-		//           + a3*b2*x^5 + a2*b2*x^4 + a1*b2*x^3 + a0*b2*x^2
-		//                       + a3*b1*x^4 + a2*b1*x^3 + a1*b1*x^2 + a0*b1*x^1
-		//                                   + a3*b0*x^3 + a2*b0*x^2 + a1*b0*x^1 + a0*b0*x^0
-		// ---------------------------------------------------------------------------------
-		// (a3*b3)x^6
-		//           + (a2*b3+a3*b2)x^5
-		//                       + (a1*b3+a2*b2+a3*b1)x^4
-		//                                   + (a0*b3+a1*b2+a2*b1+a3*b0)x^3
-		//                                               + (a0*b2+a1*b1+a2*b0)x^2
-		//                                                           + (a0*b1+a1*b0)x^1
-		//                                                                         + (a0*b0)
 		for bi := 0; bi < len(b); bi++ {
 			for ai := 0; ai < len(a); ai++ {
 				product := first.field.Mul(a[ai], b[bi])
@@ -177,15 +158,22 @@ func (a Polynomial) String() string {
 		return "0"
 	}
 	var buf bytes.Buffer
-	for i := len(a.coefficients) - 1; i >= 0; i-- {
-		term := a.Term(uint(i))
-		if !term.IsZero() {
-			buf.WriteString(term.String())
+	for d := len(a.coefficients) - 1; d >= 0; d-- {
+		k := a.coefficients[d]
+		if k == 0 {
+			continue
+		}
+		if buf.Len() > 0 {
 			buf.WriteString(" + ")
 		}
-	}
-	if buf.Len() > 0 {
-		buf.Truncate(buf.Len() - 3)
+		if k > 1 || d == 0 {
+			fmt.Fprintf(&buf, "%d", k)
+		}
+		if d > 1 {
+			fmt.Fprintf(&buf, "x^%d", d)
+		} else if d == 1 {
+			buf.WriteByte('x')
+		}
 	}
 	return buf.String()
 }
