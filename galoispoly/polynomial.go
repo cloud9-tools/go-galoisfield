@@ -26,18 +26,7 @@ func NewPolynomial(field *galoisfield.GF, coefficients ...byte) Polynomial {
 	if field == nil {
 		field = galoisfield.Default
 	}
-	for i := len(coefficients) - 1; i >= 0; i-- {
-		if coefficients[i] != 0 {
-			break
-		}
-		coefficients = coefficients[:i]
-	}
-	var dup []byte
-	if len(coefficients) > 0 {
-		dup = make([]byte, len(coefficients))
-		copy(dup, coefficients)
-	}
-	return Polynomial{field, dup}
+	return Polynomial{field, reduce(coefficients)}
 }
 
 // Field returns the Galois field from which this polynomial's coefficients are drawn.
@@ -58,12 +47,7 @@ func (a Polynomial) Degree() uint {
 // Coefficients returns the coefficients of the terms of this polynomial.  The
 // result is in little-endian order; see NewPolynomial for details.
 func (a Polynomial) Coefficients() []byte {
-	var dup []byte
-	if len(a.coefficients) > 0 {
-		dup = make([]byte, len(a.coefficients))
-		copy(dup, a.coefficients)
-	}
-	return dup
+	return a.coefficients
 }
 
 // Coefficient returns the coefficient of the i'th term.
@@ -91,19 +75,14 @@ func (a Polynomial) Scale(s byte) Polynomial {
 
 // Add returns the sum of one or more polynomials.
 func (first Polynomial) Add(rest ...Polynomial) Polynomial {
-	sum := make([]byte, len(first.coefficients))
-	copy(sum, first.coefficients)
+	n := maxCoeffLen(first, rest...)
+	sum := expand(n, first.coefficients)
 	for _, next := range rest {
 		if first.field != next.field {
 			panic(ErrIncompatibleFields)
 		}
 		if next.IsZero() {
 			continue
-		}
-		if len(next.coefficients) > len(sum) {
-			newsum := make([]byte, len(next.coefficients))
-			copy(newsum[:len(sum)], sum)
-			sum = newsum
 		}
 		for i, ki := range next.coefficients {
 			sum[i] = first.field.Add(sum[i], ki)
@@ -114,27 +93,21 @@ func (first Polynomial) Add(rest ...Polynomial) Polynomial {
 
 // Mul returns the product of one or more polynomials.
 func (first Polynomial) Mul(rest ...Polynomial) Polynomial {
-	prod := make([]byte, len(first.coefficients))
-	copy(prod, first.coefficients)
+	prod := first.coefficients
 	for _, next := range rest {
 		if first.field != next.field {
 			panic(ErrIncompatibleFields)
 		}
-		if first.IsZero() || next.IsZero() {
-			continue
-		}
 		a, b := prod, next.coefficients
-		if len(a) < len(b) {
-			a, b = b, a
-		}
-		newprod := make([]byte, len(a)+len(b)-1)
+		newprod := make([]byte, len(a)+len(b))
 		for bi := 0; bi < len(b); bi++ {
 			for ai := 0; ai < len(a); ai++ {
-				product := first.field.Mul(a[ai], b[bi])
-				newprod[ai+bi] = first.field.Add(newprod[ai+bi], product)
+				newprod[ai+bi] = first.field.Add(
+					newprod[ai+bi],
+					first.field.Mul(a[ai], b[bi]))
 			}
 		}
-		prod = newprod
+		prod = reduce(newprod)
 	}
 	return NewPolynomial(first.field, prod...)
 }
@@ -222,4 +195,31 @@ func (a Polynomial) Evaluate(x byte) byte {
 		pow = a.field.Mul(pow, x)
 	}
 	return sum
+}
+
+func reduce(coefficients []byte) []byte {
+	for i := len(coefficients) - 1; i >= 0; i-- {
+		if coefficients[i] != 0 {
+			break
+		}
+		coefficients = coefficients[:i]
+	}
+	return coefficients
+}
+
+func expand(n int, coefficients []byte) []byte {
+	dup := make([]byte, n)
+	copy(dup[:len(coefficients)], coefficients)
+	return dup
+}
+
+func maxCoeffLen(first Polynomial, rest ...Polynomial) int {
+	n := len(first.coefficients)
+	for _, next := range rest {
+		l := len(next.coefficients)
+		if l > n {
+			n = l
+		}
+	}
+	return n
 }
