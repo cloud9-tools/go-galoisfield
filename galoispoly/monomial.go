@@ -65,7 +65,7 @@ func (a Monomial) Mul(b Monomial) Monomial {
 func (a Monomial) Polynomial() Polynomial {
 	coefficients := make([]byte, a.degree+1)
 	coefficients[a.degree] = a.coefficient
-	return NewPolynomial(a.field, coefficients)
+	return NewPolynomial(a.field, coefficients...)
 }
 
 // GoString returns a Go-syntax representation of this monomial.

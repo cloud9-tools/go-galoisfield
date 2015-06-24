@@ -2,7 +2,7 @@ package galoispoly
 
 import (
 	"bytes"
-	"fmt"
+	"strconv"
 
 	"github.com/cloud9-tools/go-galoisfield"
 )
@@ -16,7 +16,7 @@ type Polynomial struct {
 // NewPolynomial returns a new polynomial with the given coefficients.
 // Coefficients are in little-endian order; that is, the first coefficient is
 // the constant term, the second coefficient is the linear term, etc.
-func NewPolynomial(field *galoisfield.GF, coefficients []byte) Polynomial {
+func NewPolynomial(field *galoisfield.GF, coefficients ...byte) Polynomial {
 	if field == nil {
 		field = galoisfield.Default
 	}
@@ -85,7 +85,7 @@ func (a Polynomial) Scale(s byte) Polynomial {
 	for i, coeff_i := range a.coefficients {
 		coefficients[i] = a.field.Mul(coeff_i, s)
 	}
-	return NewPolynomial(a.field, coefficients)
+	return NewPolynomial(a.field, coefficients...)
 }
 
 // Add returns the sum of one or more polynomials.
@@ -108,7 +108,7 @@ func (first Polynomial) Add(rest ...Polynomial) Polynomial {
 			sum[i] = first.field.Add(sum[i], ki)
 		}
 	}
-	return NewPolynomial(first.field, sum)
+	return NewPolynomial(first.field, sum...)
 }
 
 // Mul returns the product of one or more polynomials.
@@ -155,12 +155,20 @@ func (first Polynomial) Mul(rest ...Polynomial) Polynomial {
 		}
 		prod = newprod
 	}
-	return NewPolynomial(first.field, prod)
+	return NewPolynomial(first.field, prod...)
 }
 
 // GoString returns a Go-syntax representation of this polynomial.
 func (a Polynomial) GoString() string {
-	return fmt.Sprintf("NewPolynomial(%#v, %#v)", a.field, a.coefficients)
+	var buf bytes.Buffer
+	buf.WriteString("NewPolynomial(")
+	buf.WriteString(a.field.GoString())
+	for _, k := range a.coefficients {
+		buf.WriteString(", ")
+		buf.WriteString(strconv.Itoa(int(k)))
+	}
+	buf.WriteByte(')')
+	return buf.String()
 }
 
 // String returns a human-readable algebraic representation of this polynomial.

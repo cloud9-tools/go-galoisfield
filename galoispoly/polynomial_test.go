@@ -6,24 +6,46 @@ import (
 
 func TestNewPolynomial(t *testing.T) {
 	type testrow struct {
-		coeffs   []byte
-		expected string
+		input Polynomial
+		str string
+		gostr string
 	}
-	for _, row := range []testrow{
-		testrow{[]byte{}, "0"},
-		testrow{[]byte{1}, "1"},
-		testrow{[]byte{2}, "2"},
-		testrow{[]byte{17}, "17"},
-		testrow{[]byte{0, 2}, "2x"},
-		testrow{[]byte{1, 2}, "2x + 1"},
-		testrow{[]byte{1, 0, 1}, "x^2 + 1"},
-		testrow{[]byte{0, 1, 1}, "x^2 + x"},
-		testrow{[]byte{3, 1, 4}, "4x^2 + x + 3"},
+	for idx, row := range []testrow{
+		testrow{NewPolynomial(nil),
+			"0",
+			"NewPolynomial(Poly84320_g2)"},
+		testrow{NewPolynomial(nil, 1),
+			"1",
+			"NewPolynomial(Poly84320_g2, 1)"},
+		testrow{NewPolynomial(nil, 2),
+			"2",
+			"NewPolynomial(Poly84320_g2, 2)"},
+		testrow{NewPolynomial(nil, 17),
+			"17",
+			"NewPolynomial(Poly84320_g2, 17)"},
+		testrow{NewPolynomial(nil, 0, 2),
+			"2x",
+			"NewPolynomial(Poly84320_g2, 0, 2)"},
+		testrow{NewPolynomial(nil, 1, 2),
+			"2x + 1",
+			"NewPolynomial(Poly84320_g2, 1, 2)"},
+		testrow{NewPolynomial(nil, 1, 0, 1),
+			"x^2 + 1",
+			"NewPolynomial(Poly84320_g2, 1, 0, 1)"},
+		testrow{NewPolynomial(nil, 0, 1, 1),
+			"x^2 + x",
+			"NewPolynomial(Poly84320_g2, 0, 1, 1)"},
+		testrow{NewPolynomial(nil, 3, 1, 4),
+			"4x^2 + x + 3",
+			"NewPolynomial(Poly84320_g2, 3, 1, 4)"},
 	} {
-		p := NewPolynomial(nil, row.coeffs)
-		actual := p.String()
-		if actual != row.expected {
-			t.Errorf("%#v, got %q", row, actual)
+		str := row.input.String()
+		if str != row.str {
+			t.Errorf("[%2d] expected %q, got %q", idx, row.str, str)
+		}
+		gostr := row.input.GoString()
+		if gostr != row.gostr {
+			t.Errorf("[%2d] expected %q, got %q", idx, row.gostr, gostr)
 		}
 	}
 }
@@ -36,14 +58,14 @@ func TestPolynomial_Scale(t *testing.T) {
 	}
 	for _, row := range []testrow{
 		testrow{5,
-			NewPolynomial(nil, []byte{3, 0, 1}),
-			NewPolynomial(nil, []byte{15, 0, 5})},
+			NewPolynomial(nil, 3, 0, 1),
+			NewPolynomial(nil, 15, 0, 5)},
 		testrow{1,
-			NewPolynomial(nil, []byte{3, 0, 1}),
-			NewPolynomial(nil, []byte{3, 0, 1})},
+			NewPolynomial(nil, 3, 0, 1),
+			NewPolynomial(nil, 3, 0, 1)},
 		testrow{0,
-			NewPolynomial(nil, []byte{3, 0, 1}),
-			NewPolynomial(nil, nil)},
+			NewPolynomial(nil, 3, 0, 1),
+			NewPolynomial(nil)},
 	} {
 		actual := row.input.Scale(row.scalar)
 		if !actual.Equal(row.expected) {
@@ -60,12 +82,12 @@ func TestPolynomial_Compare(t *testing.T) {
 		expected int
 	}
 	for _, row := range []testrow{
-		testrow{NewPolynomial(nil, []byte{}), NewPolynomial(nil, []byte{}), 0},
-		testrow{NewPolynomial(nil, []byte{5}), NewPolynomial(nil, []byte{5}), 0},
-		testrow{NewPolynomial(nil, []byte{3, 5}), NewPolynomial(nil, []byte{3, 5}), 0},
-		testrow{NewPolynomial(nil, []byte{}), NewPolynomial(nil, []byte{1}), -1},
-		testrow{NewPolynomial(nil, []byte{0}), NewPolynomial(nil, []byte{1}), -1},
-		testrow{NewPolynomial(nil, []byte{2, 1}), NewPolynomial(nil, []byte{1, 2}), -1},
+		testrow{NewPolynomial(nil), NewPolynomial(nil), 0},
+		testrow{NewPolynomial(nil, 5), NewPolynomial(nil, 5), 0},
+		testrow{NewPolynomial(nil, 3, 5), NewPolynomial(nil, 3, 5), 0},
+		testrow{NewPolynomial(nil), NewPolynomial(nil, 1), -1},
+		testrow{NewPolynomial(nil, 0), NewPolynomial(nil, 1), -1},
+		testrow{NewPolynomial(nil, 2, 1), NewPolynomial(nil, 1, 2), -1},
 	} {
 		a, b, expected := row.a, row.b, row.expected
 		actual := a.Compare(b)
@@ -83,33 +105,29 @@ func TestPolynomial_Compare(t *testing.T) {
 
 func TestAdd(t *testing.T) {
 	type testrow struct {
-		a        []byte
-		b        []byte
-		expected []byte
+		a, b Polynomial
+		expected Polynomial
 	}
 	for _, row := range []testrow{
-		testrow{[]byte{1, 0, 0, 1},
-			[]byte{},
-			[]byte{1, 0, 0, 1}},
-		testrow{[]byte{1, 0, 0, 1},
-			[]byte{0, 1},
-			[]byte{1, 1, 0, 1}},
-		testrow{[]byte{1, 0, 0, 1},
-			[]byte{0, 0, 1, 1},
-			[]byte{1, 0, 1}},
+		testrow{NewPolynomial(nil, 1, 0, 0, 1),
+			NewPolynomial(nil),
+			NewPolynomial(nil, 1, 0, 0, 1)},
+		testrow{NewPolynomial(nil, 1, 0, 0, 1),
+			NewPolynomial(nil, 0, 1),
+			NewPolynomial(nil, 1, 1, 0, 1)},
+		testrow{NewPolynomial(nil, 1, 0, 0, 1),
+			NewPolynomial(nil, 0, 0, 1, 1),
+			NewPolynomial(nil, 1, 0, 1)},
 	} {
-		a := NewPolynomial(nil, row.a)
-		b := NewPolynomial(nil, row.b)
-		expected := NewPolynomial(nil, row.expected)
-		actual := a.Add(b)
-		if !actual.Equal(expected) {
-			t.Errorf("expected (%v)+(%v)=(%v), got %v", a, b, expected, actual)
+		actual := row.a.Add(row.b)
+		if !actual.Equal(row.expected) {
+			t.Errorf("expected (%v)+(%v)=(%v), got %v", row.a, row.b, row.expected, actual)
 		}
 	}
 }
 
 func TestAdd_axioms(t *testing.T) {
-	zero := NewPolynomial(nil, nil)
+	zero := NewPolynomial(nil)
 	add := func(x, y interface{}) interface{} {
 		return x.(Polynomial).Add(y.(Polynomial))
 	}
@@ -117,22 +135,19 @@ func TestAdd_axioms(t *testing.T) {
 		return x.(Polynomial).Equal(y.(Polynomial))
 	}
 	type testrow struct {
-		a, b, c []byte
+		a, b, c Polynomial
 	}
 	for _, row := range []testrow{
-		testrow{[]byte{5, 0, 0, 7},
-			[]byte{0, 3},
-			[]byte{0, 0, 1}},
-		testrow{[]byte{5, 0, 0, 7},
-			[]byte{0, 3},
-			[]byte{1, 0, 1, 2}},
-		testrow{[]byte{5, 0, 0, 7},
-			[]byte{0, 3},
-			[]byte{5, 0, 1, 7}},
+		testrow{NewPolynomial(nil, 5, 0, 0, 7),
+			NewPolynomial(nil, 0, 3),
+			NewPolynomial(nil, 0, 0, 1)},
+		testrow{NewPolynomial(nil, 5, 0, 0, 7),
+			NewPolynomial(nil, 0, 3),
+			NewPolynomial(nil, 1, 0, 1, 2)},
+		testrow{NewPolynomial(nil, 5, 0, 0, 7),
+			NewPolynomial(nil, 0, 3),
+			NewPolynomial(nil, 5, 0, 1, 7)},
 	} {
-		a := NewPolynomial(nil, row.a)
-		b := NewPolynomial(nil, row.b)
-		c := NewPolynomial(nil, row.c)
-		checkAddAxioms(t, a, b, c, zero, add, eq)
+		checkAddAxioms(t, row.a, row.b, row.c, zero, add, eq)
 	}
 }
