@@ -1,6 +1,9 @@
 package galoisfield
 
-import "testing"
+import (
+	"math/rand"
+	"testing"
+)
 
 func TestNew_gf256(t *testing.T) {
 	for _, gf := range []*GF{Poly84310_g3, Poly84320_g2} {
@@ -86,25 +89,12 @@ func TestNew_gf256(t *testing.T) {
 	}
 }
 
-func TestGF_Polynomial(t *testing.T) {
-	p := Poly84310_g3.Polynomial()
-	if p != 0x11b {
-		t.Errorf("Poly84310_g3.Polynomial(): expected 0x11b, got %#x", p)
+func TestNew_singleton(t *testing.T) {
+	a := New(4, 0x7, 2)
+	b := New(4, 0x7, 2)
+	if a != b {
+		t.Errorf("expected singleton, got multiple instances of %#v", a)
 	}
-	g := Poly84310_g3.Generator()
-	if g != 0x3 {
-		t.Errorf("Poly84310_g3.Generator(): expected 0x3, got %#x", g)
-	}
-}
-
-func panicValue(f func()) (value error) {
-	defer func() {
-		if e, ok := recover().(error); ok {
-			value = e
-		}
-	}()
-	f()
-	return
 }
 
 func TestNew_bad_field_size(t *testing.T) {
@@ -131,6 +121,15 @@ func TestNew_out_of_range(t *testing.T) {
 	}
 }
 
+func TestNew_reducible(t *testing.T) {
+	e := panicValue(func() {
+		New(64, 0x42, 0x2)
+	})
+	if e != ErrReduciblePoly {
+		t.Errorf("expected panic(ErrReduciblePoly), got %q", e.Error())
+	}
+}
+
 func TestNew_bad_generator(t *testing.T) {
 	e := panicValue(func() {
 		New(64, 0x43, 0x1)
@@ -146,58 +145,161 @@ func TestNew_bad_generator(t *testing.T) {
 	}
 }
 
-func TestNew_reducible(t *testing.T) {
-	e := panicValue(func() {
-		New(64, 0x42, 0x2)
-	})
-	if e != ErrReduciblePoly {
-		t.Errorf("expected panic(ErrReduciblePoly), got %q", e.Error())
+func TestGF_String(t *testing.T) {
+	type testrow struct {
+		field *GF
+		gostr string
+		str   string
+	}
+	for idx, row := range []testrow{
+		testrow{nil, "nil", "<nil>"},
+		testrow{Poly210_g2, "Poly210_g2", "GF(4;b^2+b+1;2)"},
+		testrow{Poly310_g2, "Poly310_g2", "GF(8;b^3+b+1;2)"},
+		testrow{Poly410_g2, "Poly410_g2", "GF(16;b^4+b+1;2)"},
+		testrow{Poly520_g2, "Poly520_g2", "GF(32;b^5+b^2+1;2)"},
+		testrow{Poly610_g2, "Poly610_g2", "GF(64;b^6+b+1;2)"},
+		testrow{Poly610_g7, "Poly610_g7", "GF(64;b^6+b+1;7)"},
+		testrow{Poly710_g2, "Poly710_g2", "GF(128;b^7+b+1;2)"},
+		testrow{Poly84310_g3, "Poly84310_g3", "GF(256;b^8+b^4+b^3+b+1;3)"},
+		testrow{Poly84320_g2, "Poly84320_g2", "GF(256;b^8+b^4+b^3+b^2+1;2)"},
+		testrow{New(16, 0x19, 2), "New(16, 0x19, 2)", "GF(16;b^4+b^3+1;2)"},
+	} {
+		gostr := row.field.GoString()
+		str := row.field.String()
+		if gostr != row.gostr {
+			t.Errorf("[%2d] expected %q, got %q", idx, row.gostr, gostr)
+		}
+		if str != row.str {
+			t.Errorf("[%2d] expected %q, got %q", idx, row.str, str)
+		}
 	}
 }
 
+var fields = []*GF{
+	Poly210_g2,
+	Poly310_g2,
+	Poly410_g2,
+	Poly520_g2,
+	Poly610_g2,
+	Poly610_g7,
+	Poly710_g2,
+	Poly84310_g3,
+	Poly84320_g2,
+}
+
 func TestGF_Add(t *testing.T) {
-	for _, value := range []byte{0, 1, 5, 19} {
-		result := Default.Add(value, value)
-		if result != 0 {
-			t.Errorf("expected %d+%[1]d=0, but got %d", value, result)
-		}
-		result = Default.Add(value, 0)
-		if result != value {
-			t.Errorf("expected %d+0=%d, but got %d", value, result)
-		}
-		result = Default.Add(0, value)
-		if result != value {
-			t.Errorf("expected %d+0=%d, but got %d", value, result)
+	var prng = rand.New(rand.NewSource(42))
+	for _, field := range fields {
+		for i := 0; i < 32; i++ {
+			a := byte(prng.Intn(int(field.Size())))
+			aa := field.Add(a, a)
+			az := field.Add(a, 0)
+			za := field.Add(0, a)
+			if aa != 0 {
+				t.Errorf("[%3d] expected a+a=0, got %d", a, aa)
+			}
+			if az != a {
+				t.Errorf("[%3d] expected a+0=a, got %d", a, az)
+			}
+			if za != a {
+				t.Errorf("[%3d] expected 0+a=a, got %d", a, za)
+			}
+			for j := 0; j < 16; j++ {
+				b := byte(prng.Intn(int(field.Size())))
+				ab := field.Add(a, b)
+				ba := field.Add(b, a)
+				if ab != ba {
+					t.Errorf("[%3d,%3d] expected a+b=b+a, got %d != %d",
+						a, b, ab, ba)
+				}
+				for k := 0; k < 16; k++ {
+					c := byte(prng.Intn(int(field.Size())))
+					type item struct {
+						name  string
+						value byte
+					}
+					list := []item{
+						item{"a+(b+c)", field.Add(a, field.Add(b, c))},
+						item{"a+(c+b)", field.Add(a, field.Add(c, b))},
+						item{"b+(a+c)", field.Add(b, field.Add(a, c))},
+						item{"b+(c+a)", field.Add(b, field.Add(c, a))},
+						item{"c+(a+b)", field.Add(c, field.Add(a, b))},
+						item{"c+(b+a)", field.Add(c, field.Add(b, a))},
+					}
+					for x := range list {
+						for y := x + 1; y < len(list); y++ {
+							xitem, yitem := list[x], list[y]
+							if xitem.value != yitem.value {
+								t.Errorf("[%3d,%3d,%3d] expected %s=%s, got %d != %d",
+									a, b, c,
+									xitem.name, yitem.name,
+									xitem.value, yitem.value)
+							}
+						}
+					}
+				}
+			}
 		}
 	}
 }
 
 func TestGF_Mul(t *testing.T) {
-	// nil => Poly84320_g2   => x^8       + x^4 + x^3 + x^2 + 1 => 100011101 => 0x11b
-	// (x^4 + 1)*(x^4 + x^2) => x^8 + x^6 + x^4       + x^2     => 101010100 => 0x154
-	// Subtraction is xor    =>       x^6       + x^3       + 1 => 001001001 =>  0x49
-	var a byte = 0x11
-	var b byte = 0x14
-	var axb byte = 0x49
-	result := Default.Mul(a, 0)
-	if result != 0 {
-		t.Errorf("expected %d*0=0, but got %d", a, result)
-	}
-	result = Default.Mul(0, b)
-	if result != 0 {
-		t.Errorf("expected 0*%d=0, but got %d", b, result)
-	}
-	result = Default.Mul(a, 1)
-	if result != a {
-		t.Errorf("expected %d*1=%[1]d, but got %d", a, result)
-	}
-	result = Default.Mul(1, b)
-	if result != b {
-		t.Errorf("expected 1*%d=%[1]d, but got %d", b, result)
-	}
-	result = Default.Mul(a, b)
-	if result != axb {
-		t.Errorf("expected %d*%d=%d, but got %d", a, b, axb, result)
+	var prng = rand.New(rand.NewSource(42))
+	for _, field := range fields {
+		for i := 0; i < 32; i++ {
+			a := byte(prng.Intn(int(field.Size())))
+			az := field.Mul(a, 0)
+			za := field.Mul(0, a)
+			ao := field.Mul(a, 1)
+			oa := field.Mul(1, a)
+			if az != 0 {
+				t.Errorf("[%3d] expected a*0=0, got %d", a, az)
+			}
+			if za != 0 {
+				t.Errorf("[%3d] expected 0*a=0, got %d", a, za)
+			}
+			if ao != a {
+				t.Errorf("[%3d] expected a*1=a, got %d", a, ao)
+			}
+			if oa != a {
+				t.Errorf("[%3d] expected 1*a=a, got %d", a, oa)
+			}
+			for j := 0; j < 16; j++ {
+				b := byte(prng.Intn(int(field.Size())))
+				ab := field.Mul(a, b)
+				ba := field.Mul(b, a)
+				if ab != ba {
+					t.Errorf("[%3d,%3d] expected a*b=b*a, got %d != %d",
+						a, b, ab, ba)
+				}
+				for k := 0; k < 16; k++ {
+					c := byte(prng.Intn(int(field.Size())))
+					type item struct {
+						name  string
+						value byte
+					}
+					list := []item{
+						item{"a*(b*c)", field.Mul(a, field.Mul(b, c))},
+						item{"a*(c*b)", field.Mul(a, field.Mul(c, b))},
+						item{"b*(a*c)", field.Mul(b, field.Mul(a, c))},
+						item{"b*(c*a)", field.Mul(b, field.Mul(c, a))},
+						item{"c*(a*b)", field.Mul(c, field.Mul(a, b))},
+						item{"c*(b*a)", field.Mul(c, field.Mul(b, a))},
+					}
+					for x := range list {
+						for y := x + 1; y < len(list); y++ {
+							xitem, yitem := list[x], list[y]
+							if xitem.value != yitem.value {
+								t.Errorf("[%3d,%3d,%3d] expected %s=%s, got %d != %d",
+									a, b, c,
+									xitem.name, yitem.name,
+									xitem.value, yitem.value)
+							}
+						}
+					}
+				}
+			}
+		}
 	}
 }
 
@@ -272,34 +374,10 @@ func TestGF_Exp(t *testing.T) {
 	}
 }
 
-func TestGF_String(t *testing.T) {
-	type testrow struct {
-		field *GF
-		gostr string
-		str   string
-	}
-	for _, row := range []testrow{
-		testrow{Poly84310_g3, "Poly84310_g3", "GF(256;p=0x11b;g=0x3)"},
-		testrow{Poly84320_g2, "Poly84320_g2", "GF(256;p=0x11d;g=0x2)"},
-		testrow{Default, "Poly84320_g2", "GF(256;p=0x11d;g=0x2)"},
-		testrow{nil, "nil", "<nil>"},
-		testrow{New(64, 0x43, 0x7), "New(64, 0x43, 0x7)", "GF(64;p=0x43;g=0x7)"},
-	} {
-		gostr := row.field.GoString()
-		str := row.field.String()
-		if gostr != row.gostr {
-			t.Errorf("%#v, got gostr=%q", row, gostr)
-		}
-		if str != row.str {
-			t.Errorf("%#v, got str=%q", row, str)
-		}
-	}
-}
-
-func TestCompare(t *testing.T) {
+func TestGF_Compare(t *testing.T) {
 	type testrow struct {
 		left, right *GF
-		cmp int
+		cmp         int
 	}
 	for _, row := range []testrow{
 		testrow{Default, Default, 0},
@@ -337,21 +415,34 @@ func TestCompare(t *testing.T) {
 	}
 }
 
+func TestGF_Polynomial(t *testing.T) {
+	p := Poly84310_g3.Polynomial()
+	if p != 0x11b {
+		t.Errorf("Poly84310_g3.Polynomial(): expected 0x11b, got %#x", p)
+	}
+	g := Poly84310_g3.Generator()
+	if g != 0x3 {
+		t.Errorf("Poly84310_g3.Generator(): expected 0x3, got %#x", g)
+	}
+}
+
 func TestGF8(t *testing.T) {
-	gf8 := New(8, 11, 2)
+	// Test data taken from:
+	//	http://math.stackexchange.com/questions/245621/arithmetic-operations-in-galois-field
+	// Not sure what the original source was.
 	addmatrix := [][]byte{
-		[]byte{0,1,2,3,4,5,6,7},
-		[]byte{1,0,3,2,5,4,7,6},
-		[]byte{2,3,0,1,6,7,4,5},
-		[]byte{3,2,1,0,7,6,5,4},
-		[]byte{4,5,6,7,0,1,2,3},
-		[]byte{5,4,7,6,1,0,3,2},
-		[]byte{6,7,4,5,2,3,0,1},
-		[]byte{7,6,5,4,3,2,1,0},
+		[]byte{0, 1, 2, 3, 4, 5, 6, 7},
+		[]byte{1, 0, 3, 2, 5, 4, 7, 6},
+		[]byte{2, 3, 0, 1, 6, 7, 4, 5},
+		[]byte{3, 2, 1, 0, 7, 6, 5, 4},
+		[]byte{4, 5, 6, 7, 0, 1, 2, 3},
+		[]byte{5, 4, 7, 6, 1, 0, 3, 2},
+		[]byte{6, 7, 4, 5, 2, 3, 0, 1},
+		[]byte{7, 6, 5, 4, 3, 2, 1, 0},
 	}
 	for i := byte(0); i < 8; i++ {
 		for j := byte(0); j < 8; j++ {
-			actual := gf8.Add(i, j)
+			actual := Poly310_g2.Add(i, j)
 			expect := addmatrix[i][j]
 			if actual != expect {
 				t.Errorf("expected %v+%v=%v, got %v", i, j, expect, actual)
@@ -359,23 +450,32 @@ func TestGF8(t *testing.T) {
 		}
 	}
 	mulmatrix := [][]byte{
-		[]byte{0,0,0,0,0,0,0,0},
-		[]byte{0,1,2,3,4,5,6,7},
-		[]byte{0,2,4,6,3,1,7,5},
-		[]byte{0,3,6,5,7,4,1,2},
-		[]byte{0,4,3,7,6,2,5,1},
-		[]byte{0,5,1,4,2,7,3,6},
-		[]byte{0,6,7,1,5,3,2,4},
-		[]byte{0,7,5,2,1,6,4,3},
+		[]byte{0, 0, 0, 0, 0, 0, 0, 0},
+		[]byte{0, 1, 2, 3, 4, 5, 6, 7},
+		[]byte{0, 2, 4, 6, 3, 1, 7, 5},
+		[]byte{0, 3, 6, 5, 7, 4, 1, 2},
+		[]byte{0, 4, 3, 7, 6, 2, 5, 1},
+		[]byte{0, 5, 1, 4, 2, 7, 3, 6},
+		[]byte{0, 6, 7, 1, 5, 3, 2, 4},
+		[]byte{0, 7, 5, 2, 1, 6, 4, 3},
 	}
 	for i := byte(0); i < 8; i++ {
 		for j := byte(0); j < 8; j++ {
-			actual := gf8.Mul(i, j)
+			actual := Poly310_g2.Mul(i, j)
 			expect := mulmatrix[i][j]
 			if actual != expect {
 				t.Errorf("expected %v*%v=%v, got %v", i, j, expect, actual)
 			}
 		}
+	}
+}
+
+func BenchmarkGF_Add_256(b *testing.B) {
+	gf := Default
+	var x byte = 17
+	var y byte = 48
+	for i := 0; i < b.N; i++ {
+		_ = gf.Add(x, y)
 	}
 }
 
@@ -411,4 +511,14 @@ func BenchmarkGF_Log_256(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		_ = gf.Log(x)
 	}
+}
+
+func panicValue(f func()) (value error) {
+	defer func() {
+		if e, ok := recover().(error); ok {
+			value = e
+		}
+	}()
+	f()
+	return
 }

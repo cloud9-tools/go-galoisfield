@@ -3,6 +3,7 @@ package galoisfield
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 )
 
@@ -16,9 +17,9 @@ var (
 )
 
 type params struct {
-	n uint
-	p uint
-	g uint
+	p uint16
+	k byte
+	g byte
 }
 
 // GF represents a particular permutation of GF(2**k) for some fixed k.
@@ -74,6 +75,24 @@ var (
 	Default = DefaultGF256
 )
 
+type wki struct {
+	field *GF
+	name string
+}
+
+var wellknown = []wki{
+	wki{nil, "nil"},
+	wki{Poly210_g2, "Poly210_g2"},
+	wki{Poly310_g2, "Poly310_g2"},
+	wki{Poly410_g2, "Poly410_g2"},
+	wki{Poly520_g2, "Poly520_g2"},
+	wki{Poly610_g2, "Poly610_g2"},
+	wki{Poly610_g7, "Poly610_g7"},
+	wki{Poly710_g2, "Poly710_g2"},
+	wki{Poly84310_g3, "Poly84310_g3"},
+	wki{Poly84320_g2, "Poly84320_g2"},
+}
+
 // New takes n (a power of 2), p (a polynomial), and g (a generator), then uses
 // them to construct an instance of GF(n).  This comes complete with
 // precomputed g**x and log_g(x) tables, so that all operations take O(1) time.
@@ -102,11 +121,9 @@ var (
 // The "p" and "g" arguments both have no effect on Add.
 // The "g" argument additionally has no effect on (the output of) Mul/Div/Inv.
 // Both arguments affect Exp/Log.
-func New(n, p, g uint) *GF {
-	switch n {
-	case 4, 8, 16, 32, 64, 128, 256:
-		// OK
-	default:
+func New(n, p uint, g byte) *GF {
+	k, ok := log2table[n]
+	if !ok {
 		panic(ErrFieldSize)
 	}
 	m := n - 1
@@ -119,7 +136,11 @@ func New(n, p, g uint) *GF {
 	if isReducible(p) {
 		panic(ErrReduciblePoly)
 	}
-	params := params{n, p, g}
+	params := params{
+		p: uint16(p),
+		k: k,
+		g: g,
+	}
 
 	mu.Lock()
 	singleton, found := global[params]
@@ -128,19 +149,24 @@ func New(n, p, g uint) *GF {
 		return singleton
 	}
 
-	gf := &GF{params, m, make([]byte, n), make([]byte, 2*n-2)}
+	gf := &GF{
+		params: params,
+		m: m,
+		log: make([]byte, n),
+		exp: make([]byte, 2*n-2),
+	}
 
 	// Use the generator to compute the exp/log tables.  We perform the
 	// usual trick of doubling the exp table to simplify Mul.
-	var x uint = 1
+	var x byte = 1
 	for i := uint(0); i < m; i++ {
 		if x == 1 && i != 0 {
 			panic(ErrNotGenerator)
 		}
-		gf.exp[i] = byte(x)
-		gf.exp[i+m] = byte(x)
+		gf.exp[i] = x
+		gf.exp[i+m] = x
 		gf.log[x] = byte(i)
-		x = mulSlow(x, g, p, n)
+		x = mulSlow(x, g, byte(p), k)
 	}
 
 	mu.Lock()
@@ -153,13 +179,22 @@ func New(n, p, g uint) *GF {
 	return singleton
 }
 
+// Size returns the order of the Galois field, i.e. the number of elements.
+func (gf *GF) Size() uint { return 1 << gf.k }
+
+// Polynomial returns the polynomial used to generate the Galois field.
+func (gf *GF) Polynomial() uint { return uint(gf.p) }
+
+// Generator returns the exponent base used to generate the Galois field.
+func (gf *GF) Generator() uint { return uint(gf.g) }
+
 // Compare defines a total order for finite fields: -1 if a < b, 0 if a == b,
 // or +1 if a > b.
 func (a *GF) Compare(b *GF) int {
 	switch {
-	case a.n < b.n:
+	case a.k < b.k:
 		return -1
-	case a.n > b.n:
+	case a.k > b.k:
 		return 1
 	case a.p < b.p:
 		return -1
@@ -184,14 +219,38 @@ func (a *GF) Less(b *GF) bool {
 	return a.Compare(b) < 0
 }
 
-// Size returns the order of the Galois field, i.e. the number of elements.
-func (gf *GF) Size() uint { return gf.n }
+// GoString returns a Go-syntax representation of this GF.
+func (gf *GF) GoString() string {
+	for _, wk := range wellknown {
+		if gf == wk.field {
+			return wk.name
+		}
+	}
+	return fmt.Sprintf("New(%d, %#x, %d)", 1 << gf.k, gf.p, gf.g)
+}
 
-// Polynomial returns the polynomial used to generate the Galois field.
-func (gf *GF) Polynomial() uint { return gf.p }
-
-// Generator returns the exponent base used to generate the Galois field.
-func (gf *GF) Generator() uint { return gf.g }
+// String returns a human-readable representation of this GF.
+func (gf *GF) String() string {
+	if gf == nil {
+		return "<nil>"
+	}
+	var poly []string
+	for i := 8; i >= 0; i-- {
+		if (gf.p & (1 << uint(i))) != 0 {
+			var mono string
+			if i == 0 {
+				mono = "1"
+			} else if i == 1 {
+				mono = "b"
+			} else {
+				mono = fmt.Sprintf("b^%d", i)
+			}
+			poly = append(poly, mono)
+		}
+	}
+	polystr := strings.Join(poly, "+")
+	return fmt.Sprintf("GF(%d;%s;%d)", 1 << gf.k, polystr, gf.g)
+}
 
 // Add returns x+y == x-y == x^y in GF(2**k).
 func (_ *GF) Add(x, y byte) byte { return x ^ y }
@@ -236,48 +295,28 @@ func (gf *GF) Log(x byte) byte {
 	return gf.log[x]
 }
 
-// GoString returns a Go-syntax representation of this GF.
-func (gf *GF) GoString() string {
-	if gf == nil {
-		return "nil"
-	}
-	if gf == Poly84310_g3 {
-		return "Poly84310_g3"
-	}
-	if gf == Poly84320_g2 {
-		return "Poly84320_g2"
-	}
-	return fmt.Sprintf("New(%d, %#x, %#x)", gf.Size(), gf.p, gf.g)
-}
-
-// String returns a human-readable representation of this GF.
-func (gf *GF) String() string {
-	if gf == nil {
-		return "<nil>"
-	}
-	return fmt.Sprintf("GF(%d;p=%#x;g=%#x)", gf.Size(), gf.p, gf.g)
-}
-
-// mulSlow returns x*y mod p.
-func mulSlow(x, y, p, n uint) uint {
-	r := uint(0)
-	for x > 0 {
-		if (x & 1) != 0 {
-			r ^= y
+// mulSlow returns x*y mod poly.
+func mulSlow(x, y, poly, k byte) byte {
+	var hibit byte = (1 << (k - 1))
+	var p byte = 0
+	for i := uint(0); i < uint(k); i++ {
+		if (y & 1) != 0 {
+			p ^= x
 		}
-		x >>= 1
-		y <<= 1
-		if (y & n) != 0 {
-			y ^= p
+		wasset := (x & hibit) != 0
+		x <<= 1
+		y >>= 1
+		if wasset {
+			x ^= poly
 		}
 	}
-	return r
+	return p
 }
 
 // isReducible returns true iff it can find a smaller polynomial that evenly
 // divides the given polynomial.
 func isReducible(p uint) bool {
-	n := uint(1) << ((degree(p) / 2) + 1)
+	var n uint = 1 << ((degree(p) / 2) + 1)
 	for divisor := uint(2); divisor < n; divisor++ {
 		if polyDiv(p, divisor) == 0 {
 			return true
@@ -308,3 +347,5 @@ func degree(p uint) uint {
 	}
 	return d
 }
+
+var log2table = map[uint]byte{2: 1, 4: 2, 8: 3, 16: 4, 32: 5, 64: 6, 128: 7, 256: 8}
