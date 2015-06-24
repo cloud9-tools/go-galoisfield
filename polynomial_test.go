@@ -1,10 +1,8 @@
-package galoispoly
+package galoisfield
 
 import (
 	"math/rand"
 	"testing"
-
-	"github.com/cloud9-tools/go-galoisfield"
 )
 
 func TestNewPolynomial(t *testing.T) {
@@ -12,7 +10,7 @@ func TestNewPolynomial(t *testing.T) {
 		input Polynomial
 		str   string
 		gostr string
-		field *galoisfield.GF
+		field *GF
 		deg   uint
 		coeff []byte
 	}
@@ -20,43 +18,43 @@ func TestNewPolynomial(t *testing.T) {
 		testrow{NewPolynomial(nil),
 			"0",
 			"NewPolynomial(Poly84320_g2)",
-			galoisfield.Poly84320_g2, 0, nil},
+			Poly84320_g2, 0, nil},
 		testrow{NewPolynomial(nil, 1),
 			"1",
 			"NewPolynomial(Poly84320_g2, 1)",
-			galoisfield.Poly84320_g2, 0, []byte{1}},
+			Poly84320_g2, 0, []byte{1}},
 		testrow{NewPolynomial(nil, 2),
 			"2",
 			"NewPolynomial(Poly84320_g2, 2)",
-			galoisfield.Poly84320_g2, 0, []byte{2}},
+			Poly84320_g2, 0, []byte{2}},
 		testrow{NewPolynomial(nil, 17),
 			"17",
 			"NewPolynomial(Poly84320_g2, 17)",
-			galoisfield.Poly84320_g2, 0, []byte{17}},
+			Poly84320_g2, 0, []byte{17}},
 		testrow{NewPolynomial(nil, 0, 2),
 			"2x",
 			"NewPolynomial(Poly84320_g2, 0, 2)",
-			galoisfield.Poly84320_g2, 1, []byte{0, 2}},
+			Poly84320_g2, 1, []byte{0, 2}},
 		testrow{NewPolynomial(nil, 1, 2),
 			"2x + 1",
 			"NewPolynomial(Poly84320_g2, 1, 2)",
-			galoisfield.Poly84320_g2, 1, []byte{1, 2}},
+			Poly84320_g2, 1, []byte{1, 2}},
 		testrow{NewPolynomial(nil, 1, 0, 1),
 			"x^2 + 1",
 			"NewPolynomial(Poly84320_g2, 1, 0, 1)",
-			galoisfield.Poly84320_g2, 2, []byte{1, 0, 1}},
+			Poly84320_g2, 2, []byte{1, 0, 1}},
 		testrow{NewPolynomial(nil, 0, 1, 1),
 			"x^2 + x",
 			"NewPolynomial(Poly84320_g2, 0, 1, 1)",
-			galoisfield.Poly84320_g2, 2, []byte{0, 1, 1}},
+			Poly84320_g2, 2, []byte{0, 1, 1}},
 		testrow{NewPolynomial(nil, 0, 1, 1, 0),
 			"x^2 + x",
 			"NewPolynomial(Poly84320_g2, 0, 1, 1)",
-			galoisfield.Poly84320_g2, 2, []byte{0, 1, 1}},
+			Poly84320_g2, 2, []byte{0, 1, 1}},
 		testrow{NewPolynomial(nil, 3, 1, 4),
 			"4x^2 + x + 3",
 			"NewPolynomial(Poly84320_g2, 3, 1, 4)",
-			galoisfield.Poly84320_g2, 2, []byte{3, 1, 4}},
+			Poly84320_g2, 2, []byte{3, 1, 4}},
 	} {
 		str := row.input.String()
 		if str != row.str {
@@ -131,8 +129,8 @@ func TestPolynomial_Compare(t *testing.T) {
 		testrow{NewPolynomial(nil), NewPolynomial(nil, 1), -1},
 		testrow{NewPolynomial(nil, 0), NewPolynomial(nil, 1), -1},
 		testrow{NewPolynomial(nil, 2, 1), NewPolynomial(nil, 1, 2), -1},
-		testrow{NewPolynomial(galoisfield.Poly310_g2),
-			NewPolynomial(galoisfield.Poly210_g2), 1},
+		testrow{NewPolynomial(Poly310_g2),
+			NewPolynomial(Poly210_g2), 1},
 	} {
 		a, b, expected := row.a, row.b, row.expected
 		actual := a.Compare(b)
@@ -177,8 +175,8 @@ func TestPolynomial_Add(t *testing.T) {
 
 func TestPolynomial_axioms(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
-	for _, field := range []*galoisfield.GF{
-		galoisfield.Default,
+	for _, field := range []*GF{
+		Default,
 	} {
 		zero := NewPolynomial(field)
 		one := NewPolynomial(field, 1)
@@ -216,8 +214,8 @@ func TestPolynomial_axioms(t *testing.T) {
 
 func TestPolynomial_Add_incompatible(t *testing.T) {
 	e := panicValue(func() {
-		_ = NewPolynomial(galoisfield.Poly210_g2).
-			Add(NewPolynomial(galoisfield.Poly310_g2))
+		_ = NewPolynomial(Poly210_g2).
+			Add(NewPolynomial(Poly310_g2))
 	})
 	if e != ErrIncompatibleFields {
 		t.Errorf("expected ErrIncompatibleFields, got %q", e.Error())
@@ -226,8 +224,8 @@ func TestPolynomial_Add_incompatible(t *testing.T) {
 
 func TestPolynomial_Mul_incompatible(t *testing.T) {
 	e := panicValue(func() {
-		_ = NewPolynomial(galoisfield.Poly210_g2).
-			Mul(NewPolynomial(galoisfield.Poly310_g2))
+		_ = NewPolynomial(Poly210_g2).
+			Mul(NewPolynomial(Poly310_g2))
 	})
 	if e != ErrIncompatibleFields {
 		t.Errorf("expected ErrIncompatibleFields, got %q", e.Error())
@@ -512,16 +510,6 @@ func checkMulAxioms(t *testing.T, a, b, c, zero, one Polynomial) {
 				"got a*(b+c)=%#v vs a*b+a*c=%#v",
 			a, b, c, ax_bpc, axbp_axc)
 	}
-}
-
-func panicValue(f func()) (value error) {
-	defer func() {
-		if e, ok := recover().(error); ok {
-			value = e
-		}
-	}()
-	f()
-	return
 }
 
 func equalBytes(a, b []byte) bool {

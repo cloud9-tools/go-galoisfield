@@ -1,12 +1,10 @@
-package galoispoly
+package galoisfield
 
 import (
 	"bytes"
 	"errors"
 	"fmt"
 	"strconv"
-
-	"github.com/cloud9-tools/go-galoisfield"
 )
 
 var (
@@ -15,22 +13,22 @@ var (
 
 // Polynomial implements polynomials with coefficients drawn from a Galois field.
 type Polynomial struct {
-	field        *galoisfield.GF
+	field        *GF
 	coefficients []byte
 }
 
 // NewPolynomial returns a new polynomial with the given coefficients.
 // Coefficients are in little-endian order; that is, the first coefficient is
 // the constant term, the second coefficient is the linear term, etc.
-func NewPolynomial(field *galoisfield.GF, coefficients ...byte) Polynomial {
+func NewPolynomial(field *GF, coefficients ...byte) Polynomial {
 	if field == nil {
-		field = galoisfield.Default
+		field = Default
 	}
 	return Polynomial{field, reduce(coefficients)}
 }
 
 // Field returns the Galois field from which this polynomial's coefficients are drawn.
-func (a Polynomial) Field() *galoisfield.GF { return a.field }
+func (a Polynomial) Field() *GF { return a.field }
 
 // IsZero returns true iff this polynomial has no terms.
 func (a Polynomial) IsZero() bool { return a.coefficients == nil }
