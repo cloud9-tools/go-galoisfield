@@ -216,3 +216,14 @@ func (a Polynomial) Equal(b Polynomial) bool {
 func (a Polynomial) Less(b Polynomial) bool {
 	return a.Compare(b) < 0
 }
+
+// Evaluate substitutes for x and returns the resulting value.
+func (a Polynomial) Evaluate(x byte) byte {
+	var sum byte = 0
+	var pow byte = 1
+	for _, k := range a.coefficients {
+		sum = a.field.Add(sum, a.field.Mul(k, pow))
+		pow = a.field.Mul(pow, x)
+	}
+	return sum
+}

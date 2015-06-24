@@ -121,3 +121,12 @@ func (a Monomial) Equal(b Monomial) bool {
 func (a Monomial) Less(b Monomial) bool {
 	return a.Compare(b) < 0
 }
+
+// Evaluate substitutes for x and returns the resulting value.
+func (a Monomial) Evaluate(x byte) byte {
+	pow := a.coefficient
+	for d := uint(0); d < a.degree; d++ {
+		pow = a.field.Mul(pow, x)
+	}
+	return pow
+}
