@@ -16,7 +16,8 @@ A Galois field, also known as a finite field, is a mathematical field with a
 number of elements equal to a prime number to a positive integer power.  While
 finite fields with a prime number of elements are familiar to most programmers
 -- boolean arithmetic, a.k.a. arithmetic `mod 2` is a well-known example --
-fields that take that prime to powers higher than 1 is less well-known.
+fields that take that prime to powers higher than 1 are less well-known.
+
 Basically, an element of `GF(2**m)` can be seen as a list of `m` bits, where
 addition and multiplication are elementwise `mod 2` (`a XOR b` for addition,
 `a AND b` for multiplication) and the remaining rules of field arithmetic 
