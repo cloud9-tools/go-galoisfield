@@ -28,7 +28,7 @@ Short version: an element of `GF(2**8)` element may be represented as a byte
 MMX/SSE.  We then treat said vector as the coefficients of a polynomial, and
 that allows us to define multiplication, giving us a full mathematical field.
 
-Finite fields -- and `GF(2**8)` in particular -- get a tons of use in codes,
+Finite fields -- and `GF(2**8)` in particular -- get a ton of use in codes,
 in both the "error-correcting code" and "cryptographic code" senses.
 However, this implementation has NOT been hardened against timing attacks,
 so it MUST NOT be used in cryptography.
